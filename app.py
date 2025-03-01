@@ -1,67 +1,38 @@
-from flask import Flask, render_template, request, jsonify  # Flask web framework for building the application
-import joblib  # For loading pre-trained machine learning models
-import pandas as pd  # Data manipulation library
-import pickle  # (Optional) For loading serialized objects, though not used here
+import streamlit as st
+import joblib
+import numpy as np
 
-# Initialize the Flask application
-app = Flask(__name__)
+# Load trained model
+model = joblib.load("tree_growth_model.pkl")
 
-# Load the trained machine learning model
-# Ensure 'tree_growth_model.pkl' exists in the working directory
-model = joblib.load('tree_growth_model.pkl')
+st.title("🌳 EcoTree Advisor - Tree Growth Predictor")
 
-@app.route('/')
-def index():
-    """
-    Renders the main HTML page of the web application.
+# Dropdown options
+tree_types = ["Banyan", "Mango", "Apple", "Neem", "Pine"]
+soil_types = ["Sandy", "Clay", "Loamy", "Peaty", "Silty"]
+water_availability = ["Low", "Medium", "High"]
+climate_conditions = ["Tropical", "Dry", "Temperate", "Continental", "Polar"]
 
-    Returns:
-        str: Rendered HTML template for the homepage.
-    """
-    return render_template('index.html')
+# User Inputs
+tree = st.selectbox("🌱 Select the tree you want to grow", tree_types)
+soil = st.selectbox("🌍 Select the soil type", soil_types)
+water = st.selectbox("💧 Select water availability", water_availability)
+climate = st.selectbox("☀️ Select climate condition", climate_conditions)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    """
-    Handles the prediction logic for tree growth based on user inputs.
+# Encode inputs into numerical values (assuming a predefined mapping)
+def encode_input(value, options):
+    return options.index(value)
 
-    The function expects the following input fields from the HTML form:
-        - TreeTypeInt: Encoded integer representing tree type.
-        - SoilCondition: Float value representing soil quality.
-        - WaterAvailability: Float value indicating water availability level.
-        - Climate: Float value representing climate suitability.
+tree_encoded = encode_input(tree, tree_types)
+soil_encoded = encode_input(soil, soil_types)
+water_encoded = encode_input(water, water_availability)
+climate_encoded = encode_input(climate, climate_conditions)
 
-    Returns:
-        Response: A JSON object with the prediction result or error details.
-    """
-    try:
-        # Parse input data from the request form
-        tree_type_int = float(request.form['TreeTypeInt'])
-        soil_condition = float(request.form['SoilCondition'])
-        water_availability = float(request.form['WaterAvailability'])
-        climate = float(request.form['Climate'])
-
-        # Prepare input data in a format expected by the model
-        user_data = pd.DataFrame({
-            "TreeTypeInt": [tree_type_int],
-            "SoilCondition": [soil_condition],
-            "WaterAvailability": [water_availability],
-            "Climate": [climate]
-        })
-
-        # Perform prediction using the loaded model
-        prediction = model.predict(user_data)[0]  # Assumes binary output (1 or 0)
-
-        # Convert the numerical prediction to a human-readable result
-        result = "Will Thrive" if prediction == 1 else "Will Not Thrive"
-
-        # Return the result as JSON
-        return jsonify(result=result)
-    except Exception as e:
-        # Handle errors gracefully and return the error message as JSON
-        return jsonify(error=str(e)), 400
-
-# Entry point for running the application
-if __name__ == '__main__':
-    # Run the Flask app in debug mode for development purposes
-    app.run(debug=True)
+if st.button("Predict Growth Feasibility"):
+    user_input = np.array([[tree_encoded, soil_encoded, water_encoded, climate_encoded]])
+    prediction = model.predict(user_input)[0]
+    
+    if prediction == 1:
+        st.success("✅ This tree can grow in the selected conditions!")
+    else:
+        st.error("❌ This tree might not survive in the selected conditions.")
